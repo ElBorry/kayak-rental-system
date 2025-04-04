@@ -1,7 +1,6 @@
 "use client"
 
 import type React from "react"
-
 import { useState } from "react"
 import { useAuth } from "@/components/auth-provider"
 import { Button } from "@/components/ui/button"
@@ -10,6 +9,7 @@ import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { AlertCircle } from "lucide-react"
 import { Alert, AlertDescription } from "@/components/ui/alert"
+import Link from "next/link"
 
 export default function LoginForm() {
   const [email, setEmail] = useState("")
@@ -22,10 +22,12 @@ export default function LoginForm() {
     setError(null)
 
     try {
+      console.log("Intentando login con:", email)
       await login(email, password)
-    } catch (err) {
+      console.log("Login exitoso")
+    } catch (err: any) {
       console.error("Login error:", err)
-      setError("Credenciales inválidas. Por favor, intenta de nuevo.")
+      setError(err.message || "Credenciales inválidas. Por favor, intenta de nuevo.")
     }
   }
 
@@ -68,6 +70,11 @@ export default function LoginForm() {
               onChange={(e) => setPassword(e.target.value)}
               required
             />
+          </div>
+          <div className="text-right">
+            <Link href="/forgot-password" className="text-sm text-primary hover:underline">
+              ¿Olvidó su contraseña?
+            </Link>
           </div>
         </CardContent>
         <CardFooter>

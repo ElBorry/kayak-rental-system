@@ -11,6 +11,8 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { useRentals } from "@/lib/rental-context"
 import { formatCurrency } from "@/lib/utils"
+import { AlertCircle } from "lucide-react"
+import { Alert, AlertDescription } from "@/components/ui/alert"
 
 export default function NewRentalPage() {
   const router = useRouter()
@@ -19,36 +21,55 @@ export default function NewRentalPage() {
   const [paymentMethod, setPaymentMethod] = useState<"cash" | "transfer">("cash")
   const [selectedKayakId, setSelectedKayakId] = useState<string>("")
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [duration, setDuration] = useState<"30" | "60" | "90" | "120">("30")
+  const [error, setError] = useState<string | null>(null)
 
   // Get available kayaks
   const availableKayaks = getAvailableKayaks()
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    setError(null)
 
     if (!selectedKayakId) {
-      alert("Por favor selecciona un kayak")
+      setError("Por favor selecciona un kayak")
       return
     }
 
     setIsSubmitting(true)
 
-    // Create a new rental
-    const newRental = {
-      kayakId: Number.parseInt(selectedKayakId),
-      startTime: new Date(),
-      endTime: new Date(Date.now() + 30 * 60 * 1000), // 30 minutes from now
-      type: rentalType,
-      paymentMethod: paymentMethod,
-      amount: rentalType === "simple" ? 6000 : 8000,
-      status: "active" as const,
+    try {
+      // Calcular precio según duración y tipo
+      const basePrice = rentalType === "simple" ? 6000 : 8000
+      let multiplier = 1
+
+      if (duration === "60") multiplier = 1.8
+      else if (duration === "90") multiplier = 2.5
+      else if (duration === "120") multiplier = 3
+
+      const finalPrice = Math.round(basePrice * multiplier)
+
+      // Create a new rental
+      const newRental = {
+        kayakId: Number.parseInt(selectedKayakId),
+        startTime: new Date(),
+        endTime: new Date(Date.now() + Number.parseInt(duration) * 60 * 1000), // Convert minutes to milliseconds
+        type: rentalType,
+        paymentMethod: paymentMethod,
+        amount: finalPrice,
+        status: "active" as const,
+      }
+
+      // Add the new rental
+      await addRental(newRental)
+
+      // Navigate back to the rentals page
+      router.push("/employee/rentals")
+    } catch (err) {
+      console.error("Error al crear alquiler:", err)
+      setError("Ocurrió un error al crear el alquiler. Por favor, intenta de nuevo.")
+      setIsSubmitting(false)
     }
-
-    // Add the new rental
-    addRental(newRental)
-
-    // Navigate back to the rentals page
-    router.push("/employee/rentals")
   }
 
   return (
@@ -59,9 +80,16 @@ export default function NewRentalPage() {
         <Card>
           <CardHeader>
             <CardTitle>Detalles del Alquiler</CardTitle>
-            <CardDescription>Registra un nuevo alquiler de kayak. La duración es de 30 minutos.</CardDescription>
+            <CardDescription>Registra un nuevo alquiler de kayak.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
+            {error && (
+              <Alert variant="destructive">
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription>{error}</AlertDescription>
+              </Alert>
+            )}
+
             <div className="space-y-2">
               <Label>Tipo de Alquiler</Label>
               <RadioGroup
@@ -82,6 +110,32 @@ export default function NewRentalPage() {
                     <span>Alquiler Doble</span>
                     <span>{formatCurrency(8000)}</span>
                   </Label>
+                </div>
+              </RadioGroup>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Duración</Label>
+              <RadioGroup
+                value={duration}
+                onValueChange={(value) => setDuration(value as "30" | "60" | "90" | "120")}
+                className="flex flex-col space-y-2"
+              >
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="30" id="duration-30" />
+                  <Label htmlFor="duration-30">30 minutos</Label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="60" id="duration-60" />
+                  <Label htmlFor="duration-60">1 hora</Label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="90" id="duration-90" />
+                  <Label htmlFor="duration-90">1 hora 30 minutos</Label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="120" id="duration-120" />
+                  <Label htmlFor="duration-120">2 horas</Label>
                 </div>
               </RadioGroup>
             </div>
@@ -124,6 +178,39 @@ export default function NewRentalPage() {
                   )}
                 </SelectContent>
               </Select>
+            </div>
+
+            <div className="p-4 border rounded-md bg-muted/50">
+              <div className="font-medium">
+                Precio estimado:{" "}
+                {formatCurrency(
+                  rentalType === "simple"
+                    ? duration === "30"
+                      ? 6000
+                      : duration === "60"
+                        ? 10800
+                        : duration === "90"
+                          ? 15000
+                          : 18000
+                    : duration === "30"
+                      ? 8000
+                      : duration === "60"
+                        ? 14400
+                        : duration === "90"
+                          ? 20000
+                          : 24000,
+                )}
+              </div>
+              <div className="text-sm text-muted-foreground mt-1">
+                Duración:{" "}
+                {duration === "30"
+                  ? "30 minutos"
+                  : duration === "60"
+                    ? "1 hora"
+                    : duration === "90"
+                      ? "1 hora 30 minutos"
+                      : "2 horas"}
+              </div>
             </div>
           </CardContent>
           <CardFooter className="flex justify-between">

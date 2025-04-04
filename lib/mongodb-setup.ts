@@ -1,12 +1,9 @@
-import { MongoClient, ServerApiVersion } from "mongodb";
+import { MongoClient, ServerApiVersion } from "mongodb"
 
-// Verificar si la URI de la base de datos está definida
-if (!process.env.MONGODB_URI) {
-  throw new Error("❌ Error: La variable de entorno MONGODB_URI no está definida.");
-}
-
-// Obtener la URI desde las variables de entorno
-const uri: string = process.env.MONGODB_URI;
+// Usar la variable de entorno proporcionada
+const uri =
+  process.env.MONGODB_URI ||
+  "mongodb+srv://soyelborry:Lio1234@kayakyaguarete.iqrju.mongodb.net/kayakyaguarete?retryWrites=true&w=majority&appName=kayakyaguarete"
 
 const options = {
   serverApi: {
@@ -14,28 +11,46 @@ const options = {
     strict: true,
     deprecationErrors: true,
   },
-};
-
-// Definir los tipos de `client` y `clientPromise`
-let client: MongoClient;
-let clientPromise: Promise<MongoClient>;
-
-// Manejo global para evitar múltiples conexiones en desarrollo
-declare global {
-  var _mongoClientPromise: Promise<MongoClient> | undefined;
 }
 
-// Si estamos en desarrollo, usar una variable global para evitar múltiples conexiones
+let client
+let clientPromise: Promise<MongoClient>
+
 if (process.env.NODE_ENV === "development") {
-  if (!global._mongoClientPromise) {
-    client = new MongoClient(uri, options);
-    global._mongoClientPromise = client.connect();
+  // En desarrollo, usamos una variable global para preservar la conexión entre recargas de HMR
+  const globalWithMongo = global as typeof globalThis & {
+    _mongoClientPromise?: Promise<MongoClient>
   }
-  clientPromise = global._mongoClientPromise;
+
+  if (!globalWithMongo._mongoClientPromise) {
+    client = new MongoClient(uri, options)
+    globalWithMongo._mongoClientPromise = client.connect()
+
+    // Solo registramos errores si ocurren
+    globalWithMongo._mongoClientPromise.catch((err) => {
+      console.error("Error al conectar con MongoDB:", err)
+    })
+  }
+  clientPromise = globalWithMongo._mongoClientPromise
 } else {
-  // En producción, crear una nueva conexión sin usar global
-  client = new MongoClient(uri, options);
-  clientPromise = client.connect();
+  // En producción, es mejor no usar una variable global
+  client = new MongoClient(uri, options)
+  clientPromise = client.connect()
+
+  // Solo registramos errores si ocurren
+  clientPromise.catch((err) => {
+    console.error("Error al conectar con MongoDB:", err)
+  })
 }
 
-export default clientPromise;
+// Verificar la conexión
+clientPromise
+  .then(() => {
+    console.log("MongoDB conectado correctamente")
+  })
+  .catch((err) => {
+    console.error("Error al conectar con MongoDB:", err)
+  })
+
+export default clientPromise
+

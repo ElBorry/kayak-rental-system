@@ -1,13 +1,13 @@
 "use client"
 
 import type React from "react"
-
 import { createContext, useContext, useState, useEffect } from "react"
 
 type User = {
   id: string
   name: string
   role: "employee" | "admin"
+  email?: string
 }
 
 type AuthContextType = {
@@ -24,55 +24,103 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [isLoading, setIsLoading] = useState(true)
 
   useEffect(() => {
-    // Check if user is already logged in
-    const storedUser = localStorage.getItem("user")
-    if (storedUser) {
-      setUser(JSON.parse(storedUser))
+    // Verificar si el usuario está autenticado al cargar la página
+    const checkAuth = async () => {
+      try {
+        console.log("Verificando autenticación...")
+        const response = await fetch("/api/auth/me")
+
+        console.log("Respuesta de /api/auth/me:", response.status)
+
+        if (response.ok) {
+          const data = await response.json()
+          console.log("Datos de usuario:", data)
+
+          if (data.user) {
+            // Normalizar el rol (asegurarse de que sea "admin" o "employee")
+            const role = data.user.role === "admin" ? "admin" : "employee"
+
+            setUser({
+              id: data.user._id || data.user.id,
+              name: data.user.name || "Usuario",
+              role: role,
+              email: data.user.email,
+            })
+
+            console.log("Usuario autenticado:", role)
+          }
+        } else {
+          console.log("No hay sesión activa")
+        }
+      } catch (error) {
+        console.error("Error al verificar autenticación:", error)
+      } finally {
+        setIsLoading(false)
+      }
     }
-    setIsLoading(false)
+
+    checkAuth()
   }, [])
 
   const login = async (email: string, password: string) => {
     setIsLoading(true)
     try {
-      console.log("Attempting login with:", email)
+      console.log("Intentando login con:", email)
 
-      // Simulate admin login with admin@kayak.com
-      if (email === "admin@kayak.com" && password === "password") {
-        const adminUser = {
-          id: "1",
-          name: "Administrador",
-          role: "admin" as const,
-        }
-        setUser(adminUser)
-        localStorage.setItem("user", JSON.stringify(adminUser))
-        console.log("Admin login successful")
+      const response = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ email, password }),
+      })
+
+      console.log("Respuesta de login:", response.status)
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || "Error al iniciar sesión")
       }
-      // Simulate employee login with employee@kayak.com
-      else if (email === "employee@kayak.com" && password === "password") {
-        const employeeUser = {
-          id: "2",
-          name: "Empleado",
-          role: "employee" as const,
-        }
-        setUser(employeeUser)
-        localStorage.setItem("user", JSON.stringify(employeeUser))
-        console.log("Employee login successful")
-      } else {
-        console.error("Invalid credentials:", email)
-        throw new Error("Credenciales inválidas")
-      }
+
+      const data = await response.json()
+      console.log("Datos de login:", data)
+
+      // Normalizar el rol (asegurarse de que sea "admin" o "employee")
+      const role = data.user.role === "admin" ? "admin" : "employee"
+
+      setUser({
+        id: data.user._id || data.user.id,
+        name: data.user.name || "Usuario",
+        role: role,
+        email: data.user.email,
+      })
+
+      console.log("Login exitoso, rol:", role)
+
+      // Forzar una recarga de la página para asegurar que la cookie se aplique correctamente
+      window.location.href = role === "admin" ? "/admin/dashboard" : "/employee/rentals"
+
+      return data
     } catch (error) {
-      console.error("Error during login:", error)
+      console.error("Error durante el login:", error)
       throw error
     } finally {
       setIsLoading(false)
     }
   }
 
-  const logout = () => {
-    setUser(null)
-    localStorage.removeItem("user")
+  const logout = async () => {
+    try {
+      await fetch("/api/auth/logout", {
+        method: "POST",
+      })
+      setUser(null)
+
+      // Redirigir a la página de inicio
+      window.location.href = "/"
+    } catch (error) {
+      console.error("Error al cerrar sesión:", error)
+    }
   }
 
   return <AuthContext.Provider value={{ user, login, logout, isLoading }}>{children}</AuthContext.Provider>

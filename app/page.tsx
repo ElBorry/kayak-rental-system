@@ -51,8 +51,7 @@ export default function Home() {
           <h1 className="text-3xl font-bold text-primary">Sistema de Alquiler de Kayaks</h1>
           <p className="mt-2 text-muted-foreground">Inicia sesión para continuar</p>
         </div>
-        <LoginForm />
-        <div className="mt-6 text-center text-lg font-semibold">{dbStatus}</div>
+        <LoginForm />        
       </div>
     </main>
   );

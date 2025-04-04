@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server"
 import { createUser } from "@/lib/db-service"
+import { hash } from "bcrypt"
 
 export async function POST(request: Request) {
   try {
@@ -16,11 +17,14 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Rol inválido" }, { status: 400 })
     }
 
+    // Hashear la contraseña
+    const hashedPassword = await hash(password, 10)
+
     // Crear usuario
     const result = await createUser({
       name,
       email,
-      password, // En una app real, hashear la contraseña antes de guardarla
+      password: hashedPassword,
       role,
     })
 

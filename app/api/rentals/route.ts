@@ -1,9 +1,13 @@
 import { NextResponse } from "next/server"
-import { createRental, getAllRentals } from "@/lib/db-service"
+import clientPromise from "@/lib/mongodb-setup"
 
 export async function GET() {
   try {
-    const rentals = await getAllRentals()
+    // Usar directamente el cliente de MongoDB para asegurar que funciona
+    const client = await clientPromise
+    const db = client.db()
+    const rentals = await db.collection("rentals").find({}).toArray()
+
     return NextResponse.json(rentals)
   } catch (error) {
     console.error("Error al obtener alquileres:", error)
@@ -21,8 +25,11 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Todos los campos son requeridos" }, { status: 400 })
     }
 
-    // Crear alquiler
-    const result = await createRental({
+    // Usar directamente el cliente de MongoDB
+    const client = await clientPromise
+    const db = client.db()
+
+    const result = await db.collection("rentals").insertOne({
       kayakId,
       startTime: new Date(startTime),
       endTime: new Date(endTime),
@@ -30,11 +37,12 @@ export async function POST(request: Request) {
       paymentMethod,
       amount,
       status,
+      createdAt: new Date(),
     })
 
     return NextResponse.json({
       message: "Alquiler creado exitosamente",
-      rentalId: result.insertedId,
+      rentalId: result.insertedId.toString(),
     })
   } catch (error) {
     console.error("Error al crear alquiler:", error)

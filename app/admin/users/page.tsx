@@ -1,8 +1,7 @@
 "use client"
 
 import type React from "react"
-
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -23,18 +22,15 @@ import { Alert, AlertDescription } from "@/components/ui/alert"
 
 type User = {
   id: string
+  _id?: string
   name: string
   email: string
   role: "admin" | "employee"
 }
 
 export default function UsersPage() {
-  // Initial mock users
-  const [users, setUsers] = useState<User[]>([
-    { id: "1", name: "Administrador", email: "admin@kayak.com", role: "admin" },
-    { id: "2", name: "Empleado", email: "employee@kayak.com", role: "employee" },
-  ])
-
+  const [users, setUsers] = useState<User[]>([])
+  const [isLoading, setIsLoading] = useState(true)
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
   const [currentUser, setCurrentUser] = useState<User | null>(null)
@@ -45,6 +41,34 @@ export default function UsersPage() {
     role: "employee" as "admin" | "employee",
   })
   const [error, setError] = useState<string | null>(null)
+
+  // Cargar usuarios al montar el componente
+  useEffect(() => {
+    const fetchUsers = async () => {
+      try {
+        const response = await fetch("/api/users")
+        if (response.ok) {
+          const data = await response.json()
+          // Normalizar los IDs
+          const formattedUsers = data.map((user: any) => ({
+            ...user,
+            id: user._id || user.id,
+          }))
+          setUsers(formattedUsers)
+        } else {
+          console.error("Error al cargar usuarios:", await response.text())
+          setError("Error al cargar usuarios")
+        }
+      } catch (error) {
+        console.error("Error al cargar usuarios:", error)
+        setError("Error al cargar usuarios")
+      } finally {
+        setIsLoading(false)
+      }
+    }
+
+    fetchUsers()
+  }, [])
 
   const handleOpenDialog = (user?: User) => {
     if (user) {
@@ -82,53 +106,86 @@ export default function UsersPage() {
     setFormData((prev) => ({ ...prev, role: value as "admin" | "employee" }))
   }
 
-  const handleSubmit = () => {
-    // Validate form
+  const handleSubmit = async () => {
+    // Validar form
     if (!formData.name || !formData.email || (!currentUser && !formData.password)) {
       setError("Por favor completa todos los campos requeridos.")
       return
     }
 
-    // Check if email already exists (except for the current user being edited)
-    const emailExists = users.some(
-      (user) => user.email === formData.email && (!currentUser || user.id !== currentUser.id),
-    )
-    if (emailExists) {
-      setError("El correo electrónico ya está en uso.")
-      return
-    }
+    try {
+      if (currentUser) {
+        // Actualizar usuario existente
+        const response = await fetch(`/api/users/${currentUser.id}`, {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            name: formData.name,
+            email: formData.email,
+            role: formData.role,
+            ...(formData.password ? { password: formData.password } : {}),
+          }),
+        })
 
-    if (currentUser) {
-      // Update existing user
-      setUsers((prevUsers) =>
-        prevUsers.map((user) =>
-          user.id === currentUser.id
-            ? {
-                ...user,
-                name: formData.name,
-                email: formData.email,
-                role: formData.role,
-              }
-            : user,
-        ),
-      )
-    } else {
-      // Create new user
-      const newUser: User = {
-        id: (users.length + 1).toString(),
-        name: formData.name,
-        email: formData.email,
-        role: formData.role,
+        if (!response.ok) {
+          const errorData = await response.json()
+          throw new Error(errorData.error || "Error al actualizar usuario")
+        }
+
+        // Actualizar estado local
+        setUsers((prevUsers) =>
+          prevUsers.map((user) =>
+            user.id === currentUser.id
+              ? {
+                  ...user,
+                  name: formData.name,
+                  email: formData.email,
+                  role: formData.role,
+                }
+              : user,
+          ),
+        )
+      } else {
+        // Crear nuevo usuario
+        const response = await fetch("/api/users", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(formData),
+        })
+
+        if (!response.ok) {
+          const errorData = await response.json()
+          throw new Error(errorData.error || "Error al crear usuario")
+        }
+
+        const data = await response.json()
+
+        // Agregar nuevo usuario al estado
+        const newUser: User = {
+          id: data.userId,
+          name: formData.name,
+          email: formData.email,
+          role: formData.role,
+        }
+        setUsers((prevUsers) => [...prevUsers, newUser])
       }
-      setUsers((prevUsers) => [...prevUsers, newUser])
-    }
 
-    setIsDialogOpen(false)
+      setIsDialogOpen(false)
+    } catch (error: any) {
+      console.error("Error al guardar usuario:", error)
+      setError(error.message || "Error al guardar usuario")
+    }
   }
 
-  const handleDelete = () => {
-    if (currentUser) {
-      // Prevent deleting the last admin
+  const handleDelete = async () => {
+    if (!currentUser) return
+
+    try {
+      // Prevenir eliminar el último admin
       const adminCount = users.filter((user) => user.role === "admin").length
       if (currentUser.role === "admin" && adminCount <= 1) {
         setError("No se puede eliminar el último administrador.")
@@ -136,9 +193,30 @@ export default function UsersPage() {
         return
       }
 
+      const response = await fetch(`/api/users/${currentUser.id}`, {
+        method: "DELETE",
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || "Error al eliminar usuario")
+      }
+
+      // Actualizar estado local
       setUsers((prevUsers) => prevUsers.filter((user) => user.id !== currentUser.id))
       setIsDeleteDialogOpen(false)
+    } catch (error: any) {
+      console.error("Error al eliminar usuario:", error)
+      setError(error.message || "Error al eliminar usuario")
     }
+  }
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-40">
+        <p>Cargando usuarios...</p>
+      </div>
+    )
   }
 
   return (
@@ -170,27 +248,35 @@ export default function UsersPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {users.map((user) => (
-                <TableRow key={user.id}>
-                  <TableCell className="font-medium">{user.name}</TableCell>
-                  <TableCell>{user.email}</TableCell>
-                  <TableCell>
-                    <Badge variant={user.role === "admin" ? "default" : "secondary"}>
-                      {user.role === "admin" ? "Administrador" : "Empleado"}
-                    </Badge>
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <Button variant="ghost" size="icon" onClick={() => handleOpenDialog(user)}>
-                      <Pencil className="h-4 w-4" />
-                      <span className="sr-only">Editar</span>
-                    </Button>
-                    <Button variant="ghost" size="icon" onClick={() => handleOpenDeleteDialog(user)}>
-                      <Trash2 className="h-4 w-4" />
-                      <span className="sr-only">Eliminar</span>
-                    </Button>
+              {users.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={4} className="text-center">
+                    No hay usuarios registrados
                   </TableCell>
                 </TableRow>
-              ))}
+              ) : (
+                users.map((user) => (
+                  <TableRow key={user.id}>
+                    <TableCell className="font-medium">{user.name}</TableCell>
+                    <TableCell>{user.email}</TableCell>
+                    <TableCell>
+                      <Badge variant={user.role === "admin" ? "default" : "secondary"}>
+                        {user.role === "admin" ? "Administrador" : "Empleado"}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <Button variant="ghost" size="icon" onClick={() => handleOpenDialog(user)}>
+                        <Pencil className="h-4 w-4" />
+                        <span className="sr-only">Editar</span>
+                      </Button>
+                      <Button variant="ghost" size="icon" onClick={() => handleOpenDeleteDialog(user)}>
+                        <Trash2 className="h-4 w-4" />
+                        <span className="sr-only">Eliminar</span>
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
             </TableBody>
           </Table>
         </CardContent>
