@@ -84,15 +84,7 @@ export default function ForgotPasswordPage() {
                                 <Alert className="bg-green-50 border-green-200 text-green-800">
                                     <CheckCircle className="h-4 w-4 text-green-600" />
                                     <AlertDescription>
-                                        Se ha enviado un enlace de recuperación a tu correo electrónico.
-                                        {resetLink && (
-                                            <div className="mt-2">
-                                                <p className="text-sm font-medium">Para fines de demostración, puedes usar este enlace:</p>
-                                                <Link href={resetLink} className="text-primary hover:underline mt-1 block">
-                                                    Restablecer contraseña
-                                                </Link>
-                                            </div>
-                                        )}
+                                        Se ha enviado un enlace de recuperación a tu correo electrónico.                                        
                                     </AlertDescription>
                                 </Alert>
                             )}

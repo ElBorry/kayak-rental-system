@@ -3,7 +3,9 @@ import clientPromise from "@/lib/mongodb-setup"
 import { verify } from "jsonwebtoken"
 import { ObjectId } from "mongodb"
 
-const JWT_SECRET = process.env.JWT_SECRET || "borry1234"
+// Usar variable intermedia con tipo explícito
+const secretFromEnv: string = process.env.JWT_SECRET || "borry1234";
+const JWT_SECRET = secretFromEnv;
 
 export async function GET(request: Request) {
     try {
@@ -42,4 +44,3 @@ export async function GET(request: Request) {
         return NextResponse.json({ error: "Error al verificar token" }, { status: 500 })
     }
 }
-

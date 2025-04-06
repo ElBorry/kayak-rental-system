@@ -2,9 +2,14 @@ import { NextResponse } from "next/server"
 import clientPromise from "@/lib/mongodb-setup"
 import { sign } from "jsonwebtoken"
 import { randomBytes } from "crypto"
+import { sendPasswordResetEmail } from "@/lib/email-service"
 
-// Usar la variable de entorno proporcionada
-const JWT_SECRET = process.env.JWT_SECRET || "borry1234"
+// Usar variables intermedias con tipos explícitos
+const secretFromEnv: string = process.env.JWT_SECRET || "borry1234";
+const JWT_SECRET = secretFromEnv;
+
+const appUrlFromEnv: string = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+const APP_URL = appUrlFromEnv;
 
 export async function POST(request: Request) {
     try {
@@ -50,18 +55,61 @@ export async function POST(request: Request) {
             { expiresIn: "1h" },
         )
 
-        // En un entorno de producción, aquí enviaríamos un correo electrónico con el enlace
-        // Para fines de demostración, simplemente devolvemos el token
+        // Crear enlace de restablecimiento
+        const resetLink = `${APP_URL}/reset-password?token=${token}`
 
-        console.log(`Token de restablecimiento generado para ${email}: ${token}`)
+        console.log("Token de restablecimiento generado para", email, ":", token)
 
-        return NextResponse.json({
-            message: "Se ha enviado un enlace de restablecimiento a tu correo electrónico",
-            token,
-        })
-    } catch (error) {
+        // Enviar correo electrónico
+        try {
+            console.log("Intentando enviar correo a:", email)
+            console.log("Usando configuración:", {
+                host: process.env.EMAIL_HOST,
+                port: process.env.EMAIL_PORT,
+                secure: process.env.EMAIL_SECURE === "true",
+                user: process.env.EMAIL_USER ? `${process.env.EMAIL_USER.substring(0, 5)}...` : "no configurado"
+            })
+
+            await sendPasswordResetEmail(email, resetLink)
+            console.log("Correo enviado exitosamente a:", email)
+
+            return NextResponse.json({
+                message: "Se ha enviado un enlace de restablecimiento a tu correo electrónico",
+            })
+        } catch (unknownError: unknown) {
+            console.error("Error al enviar correo:", unknownError)
+
+            let errorMessage = "Error desconocido al enviar correo"
+
+            // Verificar si el error es un objeto Error
+            if (unknownError instanceof Error) {
+                errorMessage = unknownError.message
+
+                // Verificar si es un error de autenticación
+                if (errorMessage.includes("Invalid login") || errorMessage.includes("authentication")) {
+                    console.error("Error de autenticación con el proveedor de correo. Verifica tus credenciales.")
+                }
+            }
+
+            // Para desarrollo, devolver el token aunque falle el envío de correo
+            if (process.env.NODE_ENV !== "production") {
+                return NextResponse.json({
+                    message: "Error al enviar correo, pero se generó el token (solo para desarrollo)",
+                    token,
+                    error: errorMessage
+                })
+            }
+
+            throw unknownError
+        }
+    } catch (error: unknown) {
         console.error("Error al procesar solicitud de restablecimiento:", error)
-        return NextResponse.json({ error: "Error al procesar la solicitud" }, { status: 500 })
+
+        let errorMessage = "Error al procesar la solicitud"
+        if (error instanceof Error) {
+            errorMessage = error.message
+        }
+
+        return NextResponse.json({ error: errorMessage }, { status: 500 })
     }
 }
-
