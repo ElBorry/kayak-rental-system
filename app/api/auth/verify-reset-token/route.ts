@@ -3,9 +3,10 @@ import clientPromise from "@/lib/mongodb-setup"
 import { verify } from "jsonwebtoken"
 import { ObjectId } from "mongodb"
 
-// Usar variable intermedia con tipo explícito
-const secretFromEnv: string = process.env.JWT_SECRET || "borry1234";
-const JWT_SECRET = secretFromEnv;
+const JWT_SECRET = process.env.JWT_SECRET
+if (!JWT_SECRET) {
+    console.error("JWT_SECRET environment variable is not set")
+}
 
 export async function GET(request: Request) {
     try {
@@ -14,6 +15,11 @@ export async function GET(request: Request) {
 
         if (!token) {
             return NextResponse.json({ error: "Token no proporcionado" }, { status: 400 })
+        }
+
+        // Verificar que JWT_SECRET esté configurado
+        if (!JWT_SECRET) {
+            return NextResponse.json({ error: "Error de configuración del servidor" }, { status: 500 })
         }
 
         try {
@@ -44,3 +50,4 @@ export async function GET(request: Request) {
         return NextResponse.json({ error: "Error al verificar token" }, { status: 500 })
     }
 }
+

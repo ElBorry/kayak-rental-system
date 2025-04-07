@@ -4,8 +4,13 @@ import { sign } from "jsonwebtoken"
 import clientPromise from "@/lib/mongodb-setup"
 import { compare } from "bcrypt"
 
-// Usar la variable de entorno proporcionada
-const JWT_SECRET = process.env.JWT_SECRET || "borry1234"
+// Usar la variable de entorno sin valor por defecto
+const JWT_SECRET = process.env.JWT_SECRET
+if (!JWT_SECRET) {
+  console.error("JWT_SECRET environment variable is not set")
+  // En producción, podrías querer lanzar un error, pero para desarrollo
+  // podemos permitir que continúe con un mensaje de advertencia
+}
 
 export async function POST(request: Request) {
   try {
@@ -80,6 +85,11 @@ export async function POST(request: Request) {
     if (!passwordMatches) {
       console.log("Contraseña incorrecta para usuario:", email)
       return NextResponse.json({ error: "Credenciales inválidas" }, { status: 401 })
+    }
+
+    // Verificar que JWT_SECRET esté definido antes de usarlo
+    if (!JWT_SECRET) {
+      return NextResponse.json({ error: "Error de configuración del servidor" }, { status: 500 })
     }
 
     // Crear token JWT

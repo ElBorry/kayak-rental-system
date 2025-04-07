@@ -4,12 +4,16 @@ import { sign } from "jsonwebtoken"
 import { randomBytes } from "crypto"
 import { sendPasswordResetEmail } from "@/lib/email-service"
 
-// Usar variables intermedias con tipos explícitos
-const secretFromEnv: string = process.env.JWT_SECRET || "borry1234";
-const JWT_SECRET = secretFromEnv;
+// Usar variables de entorno sin valores por defecto
+const JWT_SECRET = process.env.JWT_SECRET
+if (!JWT_SECRET) {
+    console.error("JWT_SECRET environment variable is not set")
+}
 
-const appUrlFromEnv: string = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
-const APP_URL = appUrlFromEnv;
+const APP_URL = process.env.NEXT_PUBLIC_APP_URL
+if (!APP_URL) {
+    console.error("NEXT_PUBLIC_APP_URL environment variable is not set")
+}
 
 export async function POST(request: Request) {
     try {
@@ -18,6 +22,11 @@ export async function POST(request: Request) {
 
         if (!email) {
             return NextResponse.json({ error: "El correo electrónico es requerido" }, { status: 400 })
+        }
+
+        // Verificar que las variables de entorno estén configuradas
+        if (!JWT_SECRET || !APP_URL) {
+            return NextResponse.json({ error: "Error de configuración del servidor" }, { status: 500 })
         }
 
         // Buscar usuario por email
@@ -58,58 +67,29 @@ export async function POST(request: Request) {
         // Crear enlace de restablecimiento
         const resetLink = `${APP_URL}/reset-password?token=${token}`
 
-        console.log("Token de restablecimiento generado para", email, ":", token)
-
         // Enviar correo electrónico
         try {
-            console.log("Intentando enviar correo a:", email)
-            console.log("Usando configuración:", {
-                host: process.env.EMAIL_HOST,
-                port: process.env.EMAIL_PORT,
-                secure: process.env.EMAIL_SECURE === "true",
-                user: process.env.EMAIL_USER ? `${process.env.EMAIL_USER.substring(0, 5)}...` : "no configurado"
-            })
-
             await sendPasswordResetEmail(email, resetLink)
-            console.log("Correo enviado exitosamente a:", email)
 
             return NextResponse.json({
                 message: "Se ha enviado un enlace de restablecimiento a tu correo electrónico",
             })
-        } catch (unknownError: unknown) {
-            console.error("Error al enviar correo:", unknownError)
-
-            let errorMessage = "Error desconocido al enviar correo"
-
-            // Verificar si el error es un objeto Error
-            if (unknownError instanceof Error) {
-                errorMessage = unknownError.message
-
-                // Verificar si es un error de autenticación
-                if (errorMessage.includes("Invalid login") || errorMessage.includes("authentication")) {
-                    console.error("Error de autenticación con el proveedor de correo. Verifica tus credenciales.")
-                }
-            }
+        } catch (emailError) {
+            console.error("Error al enviar correo:", emailError)
 
             // Para desarrollo, devolver el token aunque falle el envío de correo
             if (process.env.NODE_ENV !== "production") {
                 return NextResponse.json({
                     message: "Error al enviar correo, pero se generó el token (solo para desarrollo)",
                     token,
-                    error: errorMessage
                 })
             }
 
-            throw unknownError
+            throw emailError
         }
-    } catch (error: unknown) {
+    } catch (error) {
         console.error("Error al procesar solicitud de restablecimiento:", error)
-
-        let errorMessage = "Error al procesar la solicitud"
-        if (error instanceof Error) {
-            errorMessage = error.message
-        }
-
-        return NextResponse.json({ error: errorMessage }, { status: 500 })
+        return NextResponse.json({ error: "Error al procesar la solicitud" }, { status: 500 })
     }
 }
+

@@ -4,7 +4,10 @@ import { verify } from "jsonwebtoken"
 import { ObjectId } from "mongodb"
 import { hash } from "bcrypt"
 
-const JWT_SECRET = process.env.JWT_SECRET || "borry1234"
+const JWT_SECRET = process.env.JWT_SECRET
+if (!JWT_SECRET) {
+    console.error("JWT_SECRET environment variable is not set")
+}
 
 export async function POST(request: Request) {
     try {
@@ -13,6 +16,11 @@ export async function POST(request: Request) {
 
         if (!token || !password) {
             return NextResponse.json({ error: "Token y contraseña son requeridos" }, { status: 400 })
+        }
+
+        // Verificar que JWT_SECRET esté configurado
+        if (!JWT_SECRET) {
+            return NextResponse.json({ error: "Error de configuración del servidor" }, { status: 500 })
         }
 
         try {

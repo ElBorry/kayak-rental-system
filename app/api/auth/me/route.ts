@@ -4,7 +4,10 @@ import { verify } from "jsonwebtoken"
 import clientPromise from "@/lib/mongodb-setup"
 import { ObjectId } from "mongodb"
 
-const JWT_SECRET = process.env.JWT_SECRET || "borry1234"
+const JWT_SECRET = process.env.JWT_SECRET
+if (!JWT_SECRET) {
+    console.error("JWT_SECRET environment variable is not set")
+}
 
 export async function GET() {
     try {
@@ -14,6 +17,11 @@ export async function GET() {
         if (!token) {
             console.log("No se encontró token de autenticación")
             return NextResponse.json({ error: "No autenticado" }, { status: 401 })
+        }
+
+        // Verificar que JWT_SECRET esté configurado
+        if (!JWT_SECRET) {
+            return NextResponse.json({ error: "Error de configuración del servidor" }, { status: 500 })
         }
 
         // Verificar token
