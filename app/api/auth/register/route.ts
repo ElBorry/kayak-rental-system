@@ -26,6 +26,7 @@ export async function POST(request: Request) {
       email,
       password: hashedPassword,
       role,
+      isDemo: false, // Marcar como usuario real, no de demostración
     })
 
     return NextResponse.json({

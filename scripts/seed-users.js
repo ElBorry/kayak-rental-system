@@ -2,6 +2,7 @@
 // Ejecutar con: node scripts/seed-users.js
 
 import { MongoClient } from "mongodb"
+import { hash } from "bcrypt"
 
 // Configuración
 const uri =
@@ -24,25 +25,30 @@ async function seedUsers() {
       return
     }
 
+    // Hashear contraseñas
+    const hashedPassword = await hash("password", 10)
+
     // Crear usuarios de prueba
     await db.collection("users").insertMany([
       {
         name: "Administrador",
         email: "admin@kayak.com",
-        password: "password", // En producción, hashear la contraseña
+        password: "password", // No hashear para usuarios de demostración
         role: "admin",
+        isDemo: true, // Marcar como usuario de demostración
         createdAt: new Date(),
       },
       {
         name: "Empleado",
         email: "employee@kayak.com",
-        password: "password", // En producción, hashear la contraseña
+        password: "password", // No hashear para usuarios de demostración
         role: "employee",
+        isDemo: true, // Marcar como usuario de demostración
         createdAt: new Date(),
       },
     ])
 
-    console.log("Usuarios creados exitosamente")
+    console.log("Usuarios de demostración creados exitosamente")
   } catch (error) {
     console.error("Error al crear usuarios:", error)
   } finally {

@@ -8,6 +8,7 @@ type User = {
   name: string
   role: "employee" | "admin"
   email?: string
+  isDemo?: boolean // Añadir flag para identificar usuarios de demostración
 }
 
 type AuthContextType = {
@@ -15,6 +16,7 @@ type AuthContextType = {
   login: (email: string, password: string) => Promise<void>
   logout: () => void
   isLoading: boolean
+  isDemo: boolean // Añadir propiedad para verificar si es usuario de demostración
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
@@ -22,35 +24,26 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined)
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
   const [isLoading, setIsLoading] = useState(true)
+  const [isDemo, setIsDemo] = useState(false) // Estado para controlar si es usuario de demostración
 
   useEffect(() => {
     // Verificar si el usuario está autenticado al cargar la página
     const checkAuth = async () => {
       try {
-        console.log("Verificando autenticación...")
         const response = await fetch("/api/auth/me")
-
-        console.log("Respuesta de /api/auth/me:", response.status)
-
         if (response.ok) {
           const data = await response.json()
-          console.log("Datos de usuario:", data)
-
           if (data.user) {
-            // Normalizar el rol (asegurarse de que sea "admin" o "employee")
-            const role = data.user.role === "admin" ? "admin" : "employee"
-
-            setUser({
+            const userData = {
               id: data.user._id || data.user.id,
-              name: data.user.name || "Usuario",
-              role: role,
+              name: data.user.name,
+              role: data.user.role,
               email: data.user.email,
-            })
-
-            console.log("Usuario autenticado:", role)
+              isDemo: data.user.isDemo || false,
+            }
+            setUser(userData)
+            setIsDemo(userData.isDemo || false) // Actualizar estado de demostración
           }
-        } else {
-          console.log("No hay sesión activa")
         }
       } catch (error) {
         console.error("Error al verificar autenticación:", error)
@@ -65,8 +58,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const login = async (email: string, password: string) => {
     setIsLoading(true)
     try {
-      console.log("Intentando login con:", email)
+      // Verificar si es un usuario de demostración
+      const isDemoUser = email === "admin@kayak.com" || email === "employee@kayak.com"
 
+      if (isDemoUser && password === "password") {
+        // Manejar usuarios de demostración
+        const demoUser = {
+          id: email === "admin@kayak.com" ? "demo-admin-id" : "demo-employee-id",
+          name: email === "admin@kayak.com" ? "Administrador (Demo)" : "Empleado (Demo)",
+          role: email === "admin@kayak.com" ? ("admin" as const) : ("employee" as const),
+          email: email,
+          isDemo: true,
+        }
+        setUser(demoUser)
+        setIsDemo(true)
+        console.log("Login exitoso con usuario de demostración:", demoUser)
+        return
+      }
+
+      // Intento normal de login con la API
       const response = await fetch("/api/auth/login", {
         method: "POST",
         headers: {
@@ -75,30 +85,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         body: JSON.stringify({ email, password }),
       })
 
-      console.log("Respuesta de login:", response.status)
-
       if (!response.ok) {
         const errorData = await response.json()
         throw new Error(errorData.error || "Error al iniciar sesión")
       }
 
       const data = await response.json()
-      console.log("Datos de login:", data)
 
-      // Normalizar el rol (asegurarse de que sea "admin" o "employee")
-      const role = data.user.role === "admin" ? "admin" : "employee"
-
-      setUser({
+      const userData = {
         id: data.user._id || data.user.id,
-        name: data.user.name || "Usuario",
-        role: role,
+        name: data.user.name,
+        role: data.user.role,
         email: data.user.email,
-      })
+        isDemo: data.user.isDemo || false,
+      }
 
-      console.log("Login exitoso, rol:", role)
-
-      // Forzar una recarga de la página para asegurar que la cookie se aplique correctamente
-      window.location.href = role === "admin" ? "/admin/dashboard" : "/employee/rentals"
+      setUser(userData)
+      setIsDemo(userData.isDemo || false)
 
       return data
     } catch (error) {
@@ -115,15 +118,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         method: "POST",
       })
       setUser(null)
-
-      // Redirigir a la página de inicio
-      window.location.href = "/"
+      setIsDemo(false)
     } catch (error) {
       console.error("Error al cerrar sesión:", error)
     }
   }
 
-  return <AuthContext.Provider value={{ user, login, logout, isLoading }}>{children}</AuthContext.Provider>
+  return <AuthContext.Provider value={{ user, login, logout, isLoading, isDemo }}>{children}</AuthContext.Provider>
 }
 
 export const useAuth = () => {

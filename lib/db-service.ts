@@ -15,6 +15,7 @@ export async function createUser(userData: {
   email: string
   password: string
   role: "admin" | "employee"
+  isDemo?: boolean // Añadir esta propiedad como opcional
 }) {
   const client = await clientPromise
   const db = client.db()

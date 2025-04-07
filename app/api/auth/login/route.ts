@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import { cookies } from "next/headers"
 import { sign } from "jsonwebtoken"
 import clientPromise from "@/lib/mongodb-setup"
+import { compare } from "bcrypt"
 
 // Usar la variable de entorno proporcionada
 const JWT_SECRET = process.env.JWT_SECRET || "borry1234"
@@ -11,7 +12,7 @@ export async function POST(request: Request) {
     const body = await request.json()
     const { email, password } = body
 
-    console.log("Intento de login:", { email, password })
+    console.log("Intento de login:", { email })
 
     // Validaciones básicas
     if (!email || !password) {
@@ -30,12 +31,50 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Credenciales inválidas" }, { status: 401 })
     }
 
-    // Mostrar la contraseña almacenada (solo para depuración)
-    console.log("Contraseña almacenada:", user.password)
-    console.log("Contraseña proporcionada:", password)
+    // Verificar si es un usuario de demostración (admin@kayak.com o employee@kayak.com)
+    const isDemoUser = email === "admin@kayak.com" || email === "employee@kayak.com"
 
-    // Comparación directa de contraseñas
-    const passwordMatches = user.password === password
+    let passwordMatches = false
+
+    if (isDemoUser) {
+      // Para usuarios de demostración, comparación directa (password = "password")
+      passwordMatches = password === "password"
+    } else {
+      // Verificar si la contraseña está hasheada (comienza con $2a$, $2b$ o $2y$ para bcrypt)
+      const isHashed =
+        typeof user.password === "string" &&
+        (user.password.startsWith("$2a$") || user.password.startsWith("$2b$") || user.password.startsWith("$2y$"))
+
+      if (isHashed) {
+        // Si está hasheada, usar bcrypt para comparar
+        try {
+          passwordMatches = await compare(password, user.password)
+          console.log("Verificación con bcrypt:", passwordMatches)
+        } catch (e) {
+          console.error("Error al verificar contraseña hasheada:", e)
+          passwordMatches = false
+        }
+      } else {
+        // Si no está hasheada, comparación directa (para usuarios existentes)
+        passwordMatches = user.password === password
+        console.log("Verificación directa:", passwordMatches)
+
+        // Si la contraseña coincide, podríamos actualizar a una versión hasheada
+        // para futuras verificaciones (opcional)
+        if (passwordMatches) {
+          try {
+            const { hash } = await import("bcrypt")
+            const hashedPassword = await hash(password, 10)
+            await db.collection("users").updateOne({ _id: user._id }, { $set: { password: hashedPassword } })
+            console.log("Contraseña actualizada a versión hasheada")
+          } catch (e) {
+            console.error("Error al actualizar a contraseña hasheada:", e)
+            // No interrumpir el login si esto falla
+          }
+        }
+      }
+    }
+
     console.log("Contraseña coincide:", passwordMatches)
 
     if (!passwordMatches) {
@@ -50,6 +89,7 @@ export async function POST(request: Request) {
         email: user.email,
         name: user.name,
         role: user.role,
+        isDemo: isDemoUser, // Añadir flag para identificar usuarios de demostración
       },
       JWT_SECRET,
       { expiresIn: "1d" },
@@ -73,7 +113,10 @@ export async function POST(request: Request) {
 
     return NextResponse.json({
       message: "Inicio de sesión exitoso",
-      user: userWithoutPassword,
+      user: {
+        ...userWithoutPassword,
+        isDemo: isDemoUser, // Añadir flag para identificar usuarios de demostración
+      },
     })
   } catch (error) {
     console.error("Error al iniciar sesión:", error)

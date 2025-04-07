@@ -5,13 +5,13 @@ import "./globals.css"
 import { ThemeProvider } from "@/components/theme-provider"
 import { AuthProvider } from "@/components/auth-provider"
 import { RentalProvider } from "@/lib/rental-context"
+import { DemoModeIndicator } from "@/components/demo-mode-indicator"
 
 const inter = Inter({ subsets: ["latin"] })
 
 export const metadata: Metadata = {
   title: "Sistema de Alquiler de Kayaks",
   description: "Aplicación para gestionar alquileres de kayaks",
-    generator: 'v0.dev'
 }
 
 export default function RootLayout({
@@ -24,7 +24,10 @@ export default function RootLayout({
       <body className={inter.className}>
         <ThemeProvider attribute="class" defaultTheme="light" enableSystem={false}>
           <AuthProvider>
-            <RentalProvider>{children}</RentalProvider>
+            <RentalProvider>
+              {children}
+              <DemoModeIndicator />
+            </RentalProvider>
           </AuthProvider>
         </ThemeProvider>
       </body>
@@ -32,6 +35,3 @@ export default function RootLayout({
   )
 }
 
-
-
-import './globals.css'

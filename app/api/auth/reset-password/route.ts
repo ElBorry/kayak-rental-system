@@ -2,10 +2,9 @@ import { NextResponse } from "next/server"
 import clientPromise from "@/lib/mongodb-setup"
 import { verify } from "jsonwebtoken"
 import { ObjectId } from "mongodb"
+import { hash } from "bcrypt"
 
-// Usar variable intermedia con tipo explícito
-const secretFromEnv: string = process.env.JWT_SECRET || "borry1234";
-const JWT_SECRET = secretFromEnv;
+const JWT_SECRET = process.env.JWT_SECRET || "borry1234"
 
 export async function POST(request: Request) {
     try {
@@ -34,12 +33,15 @@ export async function POST(request: Request) {
                 return NextResponse.json({ error: "Token inválido o expirado" }, { status: 401 })
             }
 
+            // Hashear la nueva contraseña
+            const hashedPassword = await hash(password, 10)
+
             // Actualizar contraseña y eliminar token de restablecimiento
             await db.collection("users").updateOne(
                 { _id: user._id },
                 {
                     $set: {
-                        password: password,
+                        password: hashedPassword,
                     },
                     $unset: {
                         resetToken: "",
@@ -58,3 +60,4 @@ export async function POST(request: Request) {
         return NextResponse.json({ error: "Error al restablecer contraseña" }, { status: 500 })
     }
 }
+

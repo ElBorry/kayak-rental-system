@@ -1,8 +1,9 @@
 "use client"
 
 import { createContext, useContext, useState, useEffect, type ReactNode } from "react"
-import type { Kayak, Rental } from "@/lib/types"
-import { kayaks as initialKayaksData } from "@/lib/data"
+import type { Kayak, Rental } from "./types"
+import { kayaks as initialKayaksData, rentals as demoRentalsData } from "./data"
+import { useAuth } from "@/components/auth-provider"
 
 type RentalContextType = {
   rentals: Rental[]
@@ -20,6 +21,7 @@ export function RentalProvider({ children }: { children: ReactNode }) {
   const [rentals, setRentals] = useState<Rental[]>([])
   const [kayaks, setKayaks] = useState<Kayak[]>([])
   const [isLoading, setIsLoading] = useState(true)
+  const { isDemo } = useAuth() // Usar el contexto de autenticación para saber si es usuario de demostración
 
   // Cargar datos iniciales
   useEffect(() => {
@@ -27,6 +29,24 @@ export function RentalProvider({ children }: { children: ReactNode }) {
       try {
         setIsLoading(true)
 
+        if (isDemo) {
+          // Si es usuario de demostración, cargar datos de demostración
+          console.log("Cargando datos de demostración para usuario de prueba")
+          setKayaks(initialKayaksData)
+
+          // Convertir fechas de string a Date para los datos de demostración
+          const formattedDemoRentals = demoRentalsData.map((rental) => ({
+            ...rental,
+            startTime: new Date(rental.startTime),
+            endTime: new Date(rental.endTime),
+          }))
+
+          setRentals(formattedDemoRentals)
+          setIsLoading(false)
+          return
+        }
+
+        // Si es usuario real, cargar datos de la base de datos
         // Cargar kayaks
         const kayaksResponse = await fetch("/api/kayaks")
         if (kayaksResponse.ok) {
@@ -65,7 +85,7 @@ export function RentalProvider({ children }: { children: ReactNode }) {
     }
 
     fetchData()
-  }, []) // Solo se ejecuta una vez al montar el componente
+  }, [isDemo]) // Ejecutar cuando cambie el estado de demostración
 
   // Calcular kayaks disponibles cuando cambian los alquileres
   const getAvailableKayaks = () => {
@@ -79,6 +99,18 @@ export function RentalProvider({ children }: { children: ReactNode }) {
 
   const addRental = async (rentalData: Omit<Rental, "id">) => {
     try {
+      if (isDemo) {
+        // Si es usuario de demostración, solo actualizar el estado local
+        console.log("Añadiendo alquiler de demostración (no se guarda en BD)")
+        const newRental: Rental = {
+          id: `demo-${Date.now()}`,
+          ...rentalData,
+        }
+        setRentals((prevRentals) => [...prevRentals, newRental])
+        return
+      }
+
+      // Si es usuario real, guardar en la base de datos
       const response = await fetch("/api/rentals", {
         method: "POST",
         headers: {
@@ -110,6 +142,25 @@ export function RentalProvider({ children }: { children: ReactNode }) {
 
   const completeRental = async (id: string, contactInfo?: { phone?: string; email?: string }) => {
     try {
+      if (isDemo) {
+        // Si es usuario de demostración, solo actualizar el estado local
+        console.log("Completando alquiler de demostración (no se guarda en BD)")
+        setRentals((prevRentals) =>
+          prevRentals.map((rental) => {
+            if (rental.id === id) {
+              return {
+                ...rental,
+                status: "completed" as const,
+                contactInfo: contactInfo || rental.contactInfo,
+              }
+            }
+            return rental
+          }),
+        )
+        return
+      }
+
+      // Si es usuario real, actualizar en la base de datos
       const response = await fetch(`/api/rentals/${id}`, {
         method: "PATCH",
         headers: {
