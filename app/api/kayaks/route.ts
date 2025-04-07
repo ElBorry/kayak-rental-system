@@ -2,6 +2,9 @@ import { NextResponse } from "next/server"
 import clientPromise from "@/lib/mongodb-setup"
 import { kayaks as initialKayaks } from "@/lib/data"
 
+// Marcar esta ruta como dinámica
+export const dynamic = "force-dynamic"
+
 export async function GET() {
     try {
         const client = await clientPromise

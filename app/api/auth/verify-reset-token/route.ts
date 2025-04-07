@@ -3,6 +3,9 @@ import clientPromise from "@/lib/mongodb-setup"
 import { verify } from "jsonwebtoken"
 import { ObjectId } from "mongodb"
 
+// Marcar esta ruta como dinámica
+export const dynamic = "force-dynamic"
+
 const JWT_SECRET = process.env.JWT_SECRET
 if (!JWT_SECRET) {
     console.error("JWT_SECRET environment variable is not set")

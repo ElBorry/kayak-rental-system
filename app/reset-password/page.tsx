@@ -1,9 +1,8 @@
 "use client"
 
 import type React from "react"
-
-import { useState, useEffect } from "react"
-import { useRouter, useSearchParams } from "next/navigation"
+import { useState, useEffect, Suspense } from "react"
+import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -12,9 +11,10 @@ import { Alert, AlertDescription } from "@/components/ui/alert"
 import { AlertCircle, CheckCircle, ArrowLeft } from "lucide-react"
 import Link from "next/link"
 
-export default function ResetPasswordPage() {
+// Componente para manejar los parámetros de búsqueda
+function ResetPasswordForm() {
     const router = useRouter()
-    const searchParams = useSearchParams()
+    const searchParams = new URLSearchParams(typeof window !== "undefined" ? window.location.search : "")
     const token = searchParams.get("token")
 
     const [password, setPassword] = useState("")
@@ -100,98 +100,102 @@ export default function ResetPasswordPage() {
 
     if (!isValidToken) {
         return (
-            <main className="flex min-h-screen flex-col items-center justify-center p-4 md:p-24">
-                <div className="w-full max-w-md">
-                    <Card>
-                        <CardHeader>
-                            <CardTitle>Enlace inválido</CardTitle>
-                            <CardDescription>El enlace de restablecimiento de contraseña es inválido o ha expirado.</CardDescription>
-                        </CardHeader>
-                        <CardContent>
-                            <Alert variant="destructive">
-                                <AlertCircle className="h-4 w-4" />
-                                <AlertDescription>{error}</AlertDescription>
-                            </Alert>
-                        </CardContent>
-                        <CardFooter>
-                            <Link href="/forgot-password" className="w-full">
-                                <Button className="w-full">Solicitar nuevo enlace</Button>
-                            </Link>
-                        </CardFooter>
-                    </Card>
-                </div>
-            </main>
+            <Card>
+                <CardHeader>
+                    <CardTitle>Enlace inválido</CardTitle>
+                    <CardDescription>El enlace de restablecimiento de contraseña es inválido o ha expirado.</CardDescription>
+                </CardHeader>
+                <CardContent>
+                    <Alert variant="destructive">
+                        <AlertCircle className="h-4 w-4" />
+                        <AlertDescription>{error}</AlertDescription>
+                    </Alert>
+                </CardContent>
+                <CardFooter>
+                    <Link href="/forgot-password" className="w-full">
+                        <Button className="w-full">Solicitar nuevo enlace</Button>
+                    </Link>
+                </CardFooter>
+            </Card>
         )
     }
 
     return (
+        <Card>
+            <CardHeader>
+                <div className="flex items-center mb-2">
+                    <Link href="/" className="mr-2">
+                        <Button variant="ghost" size="icon">
+                            <ArrowLeft className="h-4 w-4" />
+                        </Button>
+                    </Link>
+                    <CardTitle>Restablecer Contraseña</CardTitle>
+                </div>
+                <CardDescription>Ingresa tu nueva contraseña para restablecer el acceso a tu cuenta.</CardDescription>
+            </CardHeader>
+            <form onSubmit={handleSubmit}>
+                <CardContent className="space-y-4">
+                    {error && (
+                        <Alert variant="destructive">
+                            <AlertCircle className="h-4 w-4" />
+                            <AlertDescription>{error}</AlertDescription>
+                        </Alert>
+                    )}
+
+                    {success && (
+                        <Alert className="bg-green-50 border-green-200 text-green-800">
+                            <CheckCircle className="h-4 w-4 text-green-600" />
+                            <AlertDescription>
+                                Tu contraseña ha sido restablecida exitosamente. Serás redirigido a la página de inicio de sesión.
+                            </AlertDescription>
+                        </Alert>
+                    )}
+
+                    {!success && (
+                        <>
+                            <div className="space-y-2">
+                                <Label htmlFor="password">Nueva Contraseña</Label>
+                                <Input
+                                    id="password"
+                                    type="password"
+                                    value={password}
+                                    onChange={(e) => setPassword(e.target.value)}
+                                    required
+                                />
+                            </div>
+                            <div className="space-y-2">
+                                <Label htmlFor="confirmPassword">Confirmar Contraseña</Label>
+                                <Input
+                                    id="confirmPassword"
+                                    type="password"
+                                    value={confirmPassword}
+                                    onChange={(e) => setConfirmPassword(e.target.value)}
+                                    required
+                                />
+                            </div>
+                        </>
+                    )}
+                </CardContent>
+
+                {!success && (
+                    <CardFooter>
+                        <Button type="submit" className="w-full" disabled={isSubmitting}>
+                            {isSubmitting ? "Restableciendo..." : "Restablecer Contraseña"}
+                        </Button>
+                    </CardFooter>
+                )}
+            </form>
+        </Card>
+    )
+}
+
+export default function ResetPasswordPage() {
+    return (
         <main className="flex min-h-screen flex-col items-center justify-center p-4 md:p-24">
             <div className="w-full max-w-md">
-                <Card>
-                    <CardHeader>
-                        <div className="flex items-center mb-2">
-                            <Link href="/" className="mr-2">
-                                <Button variant="ghost" size="icon">
-                                    <ArrowLeft className="h-4 w-4" />
-                                </Button>
-                            </Link>
-                            <CardTitle>Restablecer Contraseña</CardTitle>
-                        </div>
-                        <CardDescription>Ingresa tu nueva contraseña para restablecer el acceso a tu cuenta.</CardDescription>
-                    </CardHeader>
-                    <form onSubmit={handleSubmit}>
-                        <CardContent className="space-y-4">
-                            {error && (
-                                <Alert variant="destructive">
-                                    <AlertCircle className="h-4 w-4" />
-                                    <AlertDescription>{error}</AlertDescription>
-                                </Alert>
-                            )}
-
-                            {success && (
-                                <Alert className="bg-green-50 border-green-200 text-green-800">
-                                    <CheckCircle className="h-4 w-4 text-green-600" />
-                                    <AlertDescription>
-                                        Tu contraseña ha sido restablecida exitosamente. Serás redirigido a la página de inicio de sesión.
-                                    </AlertDescription>
-                                </Alert>
-                            )}
-
-                            {!success && (
-                                <>
-                                    <div className="space-y-2">
-                                        <Label htmlFor="password">Nueva Contraseña</Label>
-                                        <Input
-                                            id="password"
-                                            type="password"
-                                            value={password}
-                                            onChange={(e) => setPassword(e.target.value)}
-                                            required
-                                        />
-                                    </div>
-                                    <div className="space-y-2">
-                                        <Label htmlFor="confirmPassword">Confirmar Contraseña</Label>
-                                        <Input
-                                            id="confirmPassword"
-                                            type="password"
-                                            value={confirmPassword}
-                                            onChange={(e) => setConfirmPassword(e.target.value)}
-                                            required
-                                        />
-                                    </div>
-                                </>
-                            )}
-                        </CardContent>
-
-                        {!success && (
-                            <CardFooter>
-                                <Button type="submit" className="w-full" disabled={isSubmitting}>
-                                    {isSubmitting ? "Restableciendo..." : "Restablecer Contraseña"}
-                                </Button>
-                            </CardFooter>
-                        )}
-                    </form>
-                </Card>
+                <Suspense fallback={<div>Cargando...</div>}>
+                    <ResetPasswordForm />
+                </Suspense>
             </div>
         </main>
     )

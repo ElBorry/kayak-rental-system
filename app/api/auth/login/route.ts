@@ -4,6 +4,9 @@ import { sign } from "jsonwebtoken"
 import clientPromise from "@/lib/mongodb-setup"
 import { compare } from "bcrypt"
 
+// Marcar esta ruta como dinámica
+export const dynamic = "force-dynamic"
+
 // Usar la variable de entorno sin valor por defecto
 const JWT_SECRET = process.env.JWT_SECRET
 if (!JWT_SECRET) {

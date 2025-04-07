@@ -4,6 +4,9 @@ import { sign } from "jsonwebtoken"
 import { randomBytes } from "crypto"
 import { sendPasswordResetEmail } from "@/lib/email-service"
 
+// Marcar esta ruta como dinámica
+export const dynamic = "force-dynamic"
+
 // Usar variables de entorno sin valores por defecto
 const JWT_SECRET = process.env.JWT_SECRET
 if (!JWT_SECRET) {

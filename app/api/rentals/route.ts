@@ -1,6 +1,9 @@
 import { NextResponse } from "next/server"
 import clientPromise from "@/lib/mongodb-setup"
 
+// Marcar esta ruta como dinámica
+export const dynamic = "force-dynamic"
+
 export async function GET() {
   try {
     // Usar directamente el cliente de MongoDB para asegurar que funciona
