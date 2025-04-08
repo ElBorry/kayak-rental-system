@@ -27,7 +27,7 @@ export async function GET() {
 export async function POST(request: Request) {
     try {
         const body = await request.json()
-        const { name, email, password, role } = body
+        const { name, email, password, role, phone } = body
 
         // Validaciones básicas
         if (!name || !email || !password) {
@@ -48,14 +48,18 @@ export async function POST(request: Request) {
             return NextResponse.json({ error: "El correo electrónico ya está registrado" }, { status: 409 })
         }
 
-        // Asegurarse de que no se intente insertar un username nulo
-        const userData = {
+        // Crear objeto de usuario sin incluir campos nulos o indefinidos
+        const userData: any = {
             name,
             email,
             password, // En producción, deberías hashear la contraseña
             role,
             createdAt: new Date(),
-            // No incluir el campo username si no se proporciona
+        }
+
+        // Solo agregar phone si tiene un valor
+        if (phone) {
+            userData.phone = phone
         }
 
         // Crear usuario
