@@ -48,14 +48,18 @@ export async function POST(request: Request) {
             return NextResponse.json({ error: "El correo electrónico ya está registrado" }, { status: 409 })
         }
 
-        // Crear usuario (sin hashear la contraseña para simplificar)
-        const result = await db.collection("users").insertOne({
+        // Asegurarse de que no se intente insertar un username nulo
+        const userData = {
             name,
             email,
             password, // En producción, deberías hashear la contraseña
             role,
             createdAt: new Date(),
-        })
+            // No incluir el campo username si no se proporciona
+        }
+
+        // Crear usuario
+        const result = await db.collection("users").insertOne(userData)
 
         return NextResponse.json({
             message: "Usuario creado exitosamente",
@@ -66,4 +70,3 @@ export async function POST(request: Request) {
         return NextResponse.json({ error: "Error al crear el usuario" }, { status: 500 })
     }
 }
-
